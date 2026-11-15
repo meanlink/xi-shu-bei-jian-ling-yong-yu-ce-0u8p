@@ -1,4 +1,4 @@
-from sqlalchemy import String, Double, ForeignKey, Boolean
+from sqlalchemy import String, JSON, Double, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from src.config.database import Base
 class Report(Base):
@@ -18,3 +18,4 @@ class Delivery(Base):
     checksum: Mapped[str] = mapped_column(String(64))
     filename: Mapped[str] = mapped_column(String(160))
     destination: Mapped[str] = mapped_column(String(120))
+    basis: Mapped[list] = mapped_column(JSON, default=list)  # 本期采用的会签依据快照

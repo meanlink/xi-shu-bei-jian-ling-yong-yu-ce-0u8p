@@ -30,10 +30,19 @@ def tick():
         queued=list(db.scalars(select(Job.id).where(Job.status=='queued').limit(3)))
     for job_id in queued:execute(job_id)
     with Session() as db:
-        for r in db.scalars(select(Report).where(Report.enabled==True,Report.next_run<=time.time())):
-            d=deliver(db,r)
-            if d:record(db,'worker','report.delivered',{'id':r.id,'delivery':d.id})
-        db.commit()
+        due=list(db.scalars(select(Report.id).where(Report.enabled==True,Report.next_run<=time.time())))
+    for rid in due:
+        with Session() as db:
+            r=db.get(Report,rid)
+            if not r or not r.enabled or r.next_run>time.time():continue
+            try:
+                d=deliver(db,r)
+                if d:
+                    record(db,'worker','report.delivered',{'id':r.id,'delivery':d.id})
+                    db.commit()
+                else:db.rollback()  # 待复核或写文件期间被撤回：不入收件箱，下一周期重试
+            except Exception:
+                db.rollback();logging.exception('Delivery failed for report %s',rid)
 def main():
     r=Redis.from_url(REDIS_URL,socket_timeout=3)
     # This Compose stack has a single worker. A crash must not strand its jobs.

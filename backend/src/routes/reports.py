@@ -4,26 +4,30 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from src.config.database import get_db
 from src.config.settings import ARTIFACT_DIR
-from src.models import Report, Delivery
+from src.models import Job, Report, Delivery
 from src.schemas.report import ReportInput
 from src.middlewares.auth import current_user, admin_only
-from src.services import reports
+from src.services import reports, approvals
 from src.services.audit import record
 from src.utils.serialization import report_dict, delivery_dict
 router=APIRouter()
 @router.get('/reports')
 def listing(db=Depends(get_db),u=Depends(current_user)):
-    return [report_dict(r) for r in db.scalars(select(Report).order_by(Report.id.desc()))]
+    rows=db.scalars(select(Report).order_by(Report.id.desc())).all()
+    jobs={j.id:j for j in (db.get(Job,r.job_id) for r in rows) if j}
+    vs=approvals.views(db,list(jobs.values()))
+    return [report_dict(r,released=vs[r.job_id]['released'] if r.job_id in vs else False) for r in rows]
 @router.post('/reports',status_code=201)
 def create(data:ReportInput,db=Depends(get_db),u=Depends(admin_only)):
     r=reports.create(db,data); record(db,u.email,'report.schedule',{'id':r.id,'destination':r.destination}); db.commit()
-    return report_dict(r)
+    return report_dict(r,released=True)
 @router.post('/reports/{id}/toggle')
 def toggle(id:int,db=Depends(get_db),u=Depends(admin_only)):
     r=db.get(Report,id)
     if not r:raise HTTPException(404,'分发计划不存在')
     r.enabled=not r.enabled;record(db,u.email,'report.toggle',{'id':id,'enabled':r.enabled});db.commit()
-    return report_dict(r)
+    j=db.get(Job,r.job_id)
+    return report_dict(r,released=approvals.released(db,j) if j else False)
 @router.get('/deliveries')
 def deliveries(db=Depends(get_db),u=Depends(current_user)):
     return [delivery_dict(d) for d in db.scalars(select(Delivery).order_by(Delivery.id.desc()).limit(100))]

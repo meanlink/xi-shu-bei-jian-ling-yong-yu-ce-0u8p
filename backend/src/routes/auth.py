@@ -15,6 +15,6 @@ def login(data:Login, db=Depends(get_db)):
     u=db.scalar(select(User).where(User.email==data.email))
     if not u or not verify_password(data.password,u.password): raise HTTPException(401,'账号或密码不正确')
     record(db,u.email,'auth.login'); db.commit()
-    return {'access_token':token_for(u),'user':{'name':u.name,'role':u.role,'email':u.email}}
+    return {'access_token':token_for(u),'user':{'id':u.id,'name':u.name,'role':u.role,'email':u.email}}
 @router.get('/me')
-def me(u=Depends(current_user)):return {'name':u.name,'role':u.role,'email':u.email}
+def me(u=Depends(current_user)):return {'id':u.id,'name':u.name,'role':u.role,'email':u.email}

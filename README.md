@@ -3,8 +3,11 @@
 间歇需求预测的真实业务分析小型项目。完整模拟客户、痛点、上下游、算法公式与一天工作剧本见 [BUSINESS.md](BUSINESS.md)。
 
 ## 模块与业务流程
-数据接入（JSON/CSV、字段验证、批次指纹）→ 参数化分析（异步 Python worker）→ 结果复核（指标、图形、明细、解释、批准）→ 定时分发（本地收件箱、CSV/JSON、SHA256）；另有业务总览和审计轨迹。
-三个贯穿全栈的实体：Dataset 数据批次、Job 分析任务、Report 分发计划；辅助 User、Audit、Delivery。
+数据接入（JSON/CSV、字段验证、批次指纹）→ 参数化分析（异步 Python worker）→ 结果复核（指标、图形、明细、解释、双人会签）→ 定时分发（本地收件箱、CSV/JSON、SHA256）；另有业务总览和审计轨迹。
+三个贯穿全栈的实体：Dataset 数据批次、Job 分析任务、Report 分发计划；辅助 User、Audit、Delivery、Approval。
+
+## 双人会签
+分析结果须两名不同负责人会签同意才放行分发，创建人不计票；任一复核人可撤回自己的意见，撤回即暂停新一期分发，已归档简报保留。并发同意与撤回按实际生效顺序裁决，写文件期间被撤回的简报不进入收件箱，失败重试不重复计票。旧版批准记录升级后仅作历史凭据，存量计划先转待复核，凑齐会签再恢复。每份归档记录本期采用的会签依据。
 
 ## 快速启动
 ```bash
@@ -18,8 +21,10 @@ docker compose exec -T backend python -m scripts.seed_demo
 ## 演示账号与权限
 |账号|密码|真实权限|
 |---|---|---|
-|admin@demo.local|Demo123!|接入、执行、批准、分发、暂停、读取与下载|
-|analyst@demo.local|Demo123!|接入、执行、读取与下载；不能批准或安排分发|
+|admin@demo.local|Demo123!|接入、执行、会签、分发、暂停、读取与下载|
+|admin2@demo.local|Demo123!|同 admin，用于第二人会签|
+|admin3@demo.local|Demo123!|同 admin，覆盖创建人同为负责人时的会签|
+|analyst@demo.local|Demo123!|接入、执行、读取与下载；不能会签或安排分发|
 |viewer@demo.local|Demo123!|只读与下载|
 
 ## 技术与本地开发
